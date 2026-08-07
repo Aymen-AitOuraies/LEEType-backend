@@ -1,11 +1,21 @@
 import { Injectable } from '@nestjs/common';
 import { CreateDailyChallengeDto } from './dto/create-daily-challenge.dto';
 import { UpdateDailyChallengeDto } from './dto/update-daily-challenge.dto';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class DailyChallengeService {
+  constructor(private readonly prisma: PrismaService) {}
+
   create(createDailyChallengeDto: CreateDailyChallengeDto) {
-    return 'This action adds a new dailyChallenge';
+    // return 'This action adds a new dailyChallenge';
+    return this.prisma.dailyChallenge.create({
+      data: {
+        text: createDailyChallengeDto.text,
+        date: new Date(createDailyChallengeDto.date),
+        maxAttempts: createDailyChallengeDto.maxAttempts
+      }
+    })
   }
 
   findAll() {

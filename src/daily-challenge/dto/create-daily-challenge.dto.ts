@@ -10,5 +10,5 @@ export class CreateDailyChallengeDto {
 
 	@IsInt()
 	@Min(1)
-	maxAttemps!: number;
+	maxAttempts!: number;
 }
