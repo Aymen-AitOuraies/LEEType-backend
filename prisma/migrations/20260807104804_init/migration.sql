@@ -4,7 +4,6 @@ CREATE TABLE "User" (
     "login" TEXT NOT NULL,
     "campus" TEXT NOT NULL,
     "avatarUrl" TEXT NOT NULL,
-    "points" INTEGER NOT NULL DEFAULT 0,
 
     CONSTRAINT "User_pkey" PRIMARY KEY ("id")
 );
@@ -33,6 +32,15 @@ CREATE TABLE "Attempt" (
     CONSTRAINT "Attempt_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "UserRating" (
+    "userId" INTEGER NOT NULL,
+    "points" INTEGER NOT NULL DEFAULT 0,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "UserRating_pkey" PRIMARY KEY ("userId")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "User_login_key" ON "User"("login");
 
@@ -47,3 +55,6 @@ ALTER TABLE "Attempt" ADD CONSTRAINT "Attempt_userId_fkey" FOREIGN KEY ("userId"
 
 -- AddForeignKey
 ALTER TABLE "Attempt" ADD CONSTRAINT "Attempt_challengeId_fkey" FOREIGN KEY ("challengeId") REFERENCES "DailyChallenge"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "UserRating" ADD CONSTRAINT "UserRating_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
