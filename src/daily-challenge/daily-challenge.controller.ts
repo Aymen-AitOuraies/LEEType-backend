@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, NotFoundException } from '@nestjs/common';
 import { DailyChallengeService } from './daily-challenge.service';
 import { CreateDailyChallengeDto } from './dto/create-daily-challenge.dto';
 import { UpdateDailyChallengeDto } from './dto/update-daily-challenge.dto';
@@ -12,14 +12,13 @@ export class DailyChallengeController {
     return this.dailyChallengeService.create(createDailyChallengeDto);
   }
 
-  @Get()
-  findAll() {
-    return this.dailyChallengeService.findAll();
-  }
+  @Get('today')
+  findToday() {
+    const challenge = this.dailyChallengeService.findToday();
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.dailyChallengeService.findOne(+id);
+    if (!challenge)
+      throw new NotFoundException('No daily challenge exists for today');
+    return challenge;
   }
 
   @Patch(':id')

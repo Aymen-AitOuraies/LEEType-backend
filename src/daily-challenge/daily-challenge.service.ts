@@ -27,12 +27,16 @@ export class DailyChallengeService {
     }
   }
 
-  findAll() {
-    return `This action returns all dailyChallenge`;
-  }
+  findToday() {
+    const today = new Date();
 
-  findOne(id: number) {
-    return `This action returns a #${id} dailyChallenge`;
+    today.setUTCHours(0, 0, 0, 0);
+
+    return this.prisma.dailyChallenge.findUnique({
+      where: {
+        date: today,
+      },
+    });
   }
 
   update(id: number, updateDailyChallengeDto: UpdateDailyChallengeDto) {
