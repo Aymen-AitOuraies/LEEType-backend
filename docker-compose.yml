@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: leetype-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: leetype
+      POSTGRES_PASSWORD: leetype
+      POSTGRES_DB: leetype
+    ports:
+      - "5432:5432"
+    volumes:
+      - leetype_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  leetype_postgres_data:
