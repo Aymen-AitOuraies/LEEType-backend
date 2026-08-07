@@ -4,4 +4,5 @@ export class CreateUserDto {
   avatarUrl!: string;
   campus!: string;
   login!: string;
+  bestWpm!: number;
 }
