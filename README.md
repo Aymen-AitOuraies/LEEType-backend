@@ -27,21 +27,52 @@
 
 ## Project setup
 
+Requirements:
+
+- Node.js 20.19 or newer
+- Docker with Docker Compose
+
 ```bash
-$ npm install
+npm ci
+cp .env.example .env
+docker compose up -d
+npx prisma migrate deploy
+npx prisma generate
+```
+
+The `.env` file is intentionally not committed. Each teammate must create their
+own copy from `.env.example` before running Prisma.
+
+If PostgreSQL reports an authentication error after the credentials changed,
+the existing Docker volume may have been initialized with an older password.
+For a disposable local database only, recreate it with:
+
+```bash
+# Warning: this deletes all data in the local PostgreSQL container.
+docker compose down -v
+docker compose up -d
+npx prisma migrate deploy
+```
+
+When changing `prisma/schema.prisma` during development, create a migration and
+regenerate the client:
+
+```bash
+npx prisma migrate dev --name describe_your_change
+npx prisma generate
 ```
 
 ## Compile and run the project
 
 ```bash
 # development
-$ npm run start
+npm run start
 
 # watch mode
-$ npm run start:dev
+npm run start:dev
 
 # production mode
-$ npm run start:prod
+npm run start:prod
 ```
 
 ## Run tests
