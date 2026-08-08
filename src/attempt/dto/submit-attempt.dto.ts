@@ -1,4 +1,4 @@
-import { IsInt, Max, Min } from 'class-validator';
+import { IsInt, IsNumber, Max, Min } from 'class-validator';
 
 export class SubmitAttemptDto {
   @IsInt()
@@ -13,7 +13,7 @@ export class SubmitAttemptDto {
   @Min(0)
   wpm: number;
 
-  @IsInt()
+  @IsNumber()
   @Min(0)
   @Max(100)
   accuracy: number;
