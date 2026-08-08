@@ -2,7 +2,7 @@ import { Controller, Post, Body } from '@nestjs/common';
 import { AttemptService } from './attempt.service';
 import { SubmitAttemptDto } from './dto/submit-attempt.dto';
 
-@Controller('attempt')
+@Controller('attempts')
 export class AttemptController {
   constructor(private readonly attemptService: AttemptService) {}
 
