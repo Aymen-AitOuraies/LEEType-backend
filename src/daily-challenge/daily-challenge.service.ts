@@ -1,6 +1,5 @@
 import { ConflictException, Injectable } from '@nestjs/common';
 import { CreateDailyChallengeDto } from './dto/create-daily-challenge.dto';
-import { UpdateDailyChallengeDto } from './dto/update-daily-challenge.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 
@@ -37,13 +36,5 @@ export class DailyChallengeService {
         date: today,
       },
     });
-  }
-
-  update(id: number, updateDailyChallengeDto: UpdateDailyChallengeDto) {
-    return `This action updates a #${id} dailyChallenge`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} dailyChallenge`;
   }
 }
