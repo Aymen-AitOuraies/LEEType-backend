@@ -14,4 +14,4 @@ async function bootstrap() {
   // transform : converts incoming values into their declared DTO types.
   await app.listen(process.env.PORT ?? 3000);
 }
-bootstrap();
+void bootstrap();

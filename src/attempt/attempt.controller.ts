@@ -7,8 +7,7 @@ export class AttemptController {
   constructor(private readonly attemptService: AttemptService) {}
 
   @Post()
-  submit(@Body() submitAttemptDto: SubmitAttemptDto)
-  {
+  submit(@Body() submitAttemptDto: SubmitAttemptDto) {
     return this.attemptService.submit(submitAttemptDto);
   }
 }
