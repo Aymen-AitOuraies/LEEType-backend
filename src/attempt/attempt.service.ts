@@ -11,9 +11,12 @@ export class AttemptService {
     const maxRetries = 3;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
+      try
+      {
         return await this.submitTransaction(dto);
-      } catch (error: unknown) {
+      }
+      catch (error: unknown)
+      {
         const isWriteConflict =
           error instanceof Prisma.PrismaClientKnownRequestError &&
           error.code === 'P2034';
@@ -77,6 +80,12 @@ export class AttemptService {
           );
         }
 
+        const isBetterScore =
+          !existingAttempt ||
+          dto.wpm > existingAttempt.wpm ||
+          (dto.wpm === existingAttempt.wpm &&
+            dto.accuracy > existingAttempt.accuracy);
+
         return tx.attempt.upsert({
           where: {
             userId_challengeId: {
@@ -92,8 +101,10 @@ export class AttemptService {
             attemptsUsed: 1,
           },
           update: {
-            wpm: dto.wpm,
-            accuracy: dto.accuracy,
+            ...(isBetterScore && {
+              wpm: dto.wpm,
+              accuracy: dto.accuracy,
+            }),
             attemptsUsed: {
               increment: 1,
             },
