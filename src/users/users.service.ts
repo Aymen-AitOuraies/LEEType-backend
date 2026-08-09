@@ -1,8 +1,8 @@
-import { Injectable, Post, UseInterceptors } from "@nestjs/common";
-import { NotFoundException } from "@nestjs/common";
-import { PrismaService } from "../prisma/prisma.service";
-import { CreateUserDto } from "./dto/create-user.dto";
-import type { User, PrismaPromise } from "@prisma/client";
+import { Injectable } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { CreateUserDto } from './dto/create-user.dto';
+import type { User, PrismaPromise } from '@prisma/client';
 
 // export interface User {
 //   id: number;

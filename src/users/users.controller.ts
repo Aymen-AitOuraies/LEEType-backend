@@ -7,14 +7,14 @@ import {
   Patch,
   ParseIntPipe,
   Delete,
-} from "@nestjs/common";
-import { UserService } from "./users.service";
-import { CreateUserDto } from "./dto/create-user.dto";
-import type { User, PrismaPromise } from "@prisma/client";
-import { UpdateWpmDto } from "./dto/update-wpm.dto";
-import { UpdatePointsDto } from "./dto/update-points.dto";
+} from '@nestjs/common';
+import { UserService } from './users.service';
+import { CreateUserDto } from './dto/create-user.dto';
+import type { User, PrismaPromise } from '@prisma/client';
+import { UpdateWpmDto } from './dto/update-wpm.dto';
+import { UpdatePointsDto } from './dto/update-points.dto';
 
-@Controller("users")
+@Controller('users')
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
@@ -31,24 +31,24 @@ export class UserController {
   }
 
   // Get user by ID
-  @Get("/:id")
-  getUserById(@Param("id") id: number) {
+  @Get('/:id')
+  getUserById(@Param('id') id: number) {
     return this.userService.findUserById(Number(id));
   }
 
   // Patch user best-wpm
-  @Patch("/bestWpm/:id")
+  @Patch('/bestWpm/:id')
   updateWpm(
-    @Param("id", ParseIntPipe) id: number,
+    @Param('id', ParseIntPipe) id: number,
     @Body() updateWpmDto: UpdateWpmDto,
   ) {
     return this.userService.updateUserBestWpm(id, updateWpmDto.bestWpm);
   }
 
   // Patch user best-wpm
-  @Patch("/points/:id")
+  @Patch('/points/:id')
   updatePoints(
-    @Param("id", ParseIntPipe) id: number,
+    @Param('id', ParseIntPipe) id: number,
     @Body() updatePointsDto: UpdatePointsDto,
   ) {
     return this.userService.updateUserPoints(id, updatePointsDto.points);
