@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, NotFoundException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  NotFoundException,
+} from '@nestjs/common';
 import { DailyChallengeService } from './daily-challenge.service';
 import { CreateDailyChallengeDto } from './dto/create-daily-challenge.dto';
 import { UpdateDailyChallengeDto } from './dto/update-daily-challenge.dto';
@@ -22,7 +31,10 @@ export class DailyChallengeController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateDailyChallengeDto: UpdateDailyChallengeDto) {
+  update(
+    @Param('id') id: string,
+    @Body() updateDailyChallengeDto: UpdateDailyChallengeDto,
+  ) {
     return this.dailyChallengeService.update(+id, updateDailyChallengeDto);
   }
 

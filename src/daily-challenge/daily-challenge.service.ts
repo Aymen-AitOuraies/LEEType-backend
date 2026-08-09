@@ -15,14 +15,17 @@ export class DailyChallengeService {
         data: {
           text: createDailyChallengeDto.text,
           date: new Date(createDailyChallengeDto.date),
-          maxAttempts: createDailyChallengeDto.maxAttempts
-        }
-      })
-    }
-    catch(error: unknown)
-    {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code == 'P2002')
-        throw new ConflictException('A daily challenge already exists for this date');
+          maxAttempts: createDailyChallengeDto.maxAttempts,
+        },
+      });
+    } catch (error: unknown) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code == 'P2002'
+      )
+        throw new ConflictException(
+          'A daily challenge already exists for this date',
+        );
       throw error;
     }
   }
