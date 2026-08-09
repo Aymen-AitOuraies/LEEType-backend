@@ -12,8 +12,8 @@ export class DailyChallengeController {
   }
 
   @Get('today')
-  findToday() {
-    const challenge = this.dailyChallengeService.findToday();
+  async findToday() {
+    const challenge = await this.dailyChallengeService.findToday();
 
     if (!challenge)
       throw new NotFoundException('No daily challenge exists for today');

@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { SubmitAttemptDto } from './dto/submit-attempt.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
@@ -11,12 +16,9 @@ export class AttemptService {
     const maxRetries = 3;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try
-      {
+      try {
         return await this.submitTransaction(dto);
-      }
-      catch (error: unknown)
-      {
+      } catch (error: unknown) {
         const isWriteConflict =
           error instanceof Prisma.PrismaClientKnownRequestError &&
           error.code === 'P2034';

@@ -1,14 +1,20 @@
-import { IsDateString, IsInt, IsNotEmpty, IsString, Min } from "class-validator";
+import {
+  IsDateString,
+  IsInt,
+  IsNotEmpty,
+  IsString,
+  Min,
+} from 'class-validator';
 
 export class CreateDailyChallengeDto {
-	@IsString()
-	@IsNotEmpty()
-	text!: string;
+  @IsString()
+  @IsNotEmpty()
+  text!: string;
 
-	@IsDateString()
-	date!: string;
+  @IsDateString()
+  date!: string;
 
-	@IsInt()
-	@Min(1)
-	maxAttempts!: number;
+  @IsInt()
+  @Min(1)
+  maxAttempts!: number;
 }
