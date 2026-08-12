@@ -30,8 +30,10 @@ model Attempt {
   userId       Int
   challengeId  Int
   attemptsUsed Int            @default(0)
-  wpm          Int
-  accuracy     Float
+  wpm          Int            @default(0)
+  accuracy     Float          @default(0)
+  startedAt    DateTime?
+  finishedAt   DateTime?
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   challenge    DailyChallenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)

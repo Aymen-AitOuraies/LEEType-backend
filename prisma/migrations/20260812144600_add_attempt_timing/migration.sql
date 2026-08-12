@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "Attempt" ADD COLUMN     "finishedAt" TIMESTAMP(3),
+ADD COLUMN     "startedAt" TIMESTAMP(3),
+ALTER COLUMN "wpm" SET DEFAULT 0,
+ALTER COLUMN "accuracy" SET DEFAULT 0;

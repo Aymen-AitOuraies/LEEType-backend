@@ -1,9 +1,8 @@
-import { Injectable } from '@nestjs/common';
-import { Profile } from 'passport';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { FortyTwoProfile } from '../types/forty-two-profile.type';
 import { JwtService } from '@nestjs/jwt';
-import { User } from '@prisma/client';
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -30,11 +29,33 @@ export class AuthService {
     return user;
   }
 
+  async devSignIn() {
+    const enabled =
+      process.env.NODE_ENV !== 'production' &&
+      process.env.ALLOW_DEV_LOGIN === 'true';
+
+    if (!enabled) {
+      throw new ForbiddenException('Development login is disabled');
+    }
+
+    const user = await this.prisma.user.upsert({
+      where: { login: 'dev-user' },
+      update: {},
+      create: {
+        login: 'dev-user',
+        campus: 'local',
+        avatarUrl: '',
+        points: 0,
+        bestWpm: 0,
+      },
+    });
+
+    return this.signIn(user.id);
+  }
+
   signIn(userId: number) {
-    const tokenPayload = {
-      sub: userId,
+    return {
+      accessToken: this.jwtService.sign({ sub: userId }),
     };
-    const accessToken = this.jwtService.sign(tokenPayload);
-    return { accessToken };
   }
 }
