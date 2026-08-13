@@ -1,16 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { getTodayDate } from '../common/date/get-today-date';
 
 @Injectable()
 export class LeaderboardService {
   constructor(private readonly prisma: PrismaService) {}
 
   async findToday() {
-    const today = new Date();
-    today.setUTCHours(0, 0, 0, 0);
-
     const challenge = await this.prisma.dailyChallenge.findUnique({
-      where: { date: today },
+      where: { date: getTodayDate() },
       select: {
         id: true,
         date: true,
@@ -24,6 +22,10 @@ export class LeaderboardService {
     const attempts = await this.prisma.attempt.findMany({
       where: {
         challengeId: challenge.id,
+        attemptsUsed: {
+          gt: 0,
+        },
+        OR: [{ wpm: { gt: 0 } }, { accuracy: { gt: 0 } }],
       },
       orderBy: [{ wpm: 'desc' }, { accuracy: 'desc' }],
       select: {

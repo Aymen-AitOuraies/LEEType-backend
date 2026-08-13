@@ -1,138 +1,118 @@
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import {
+  ExecutionContext,
+  INestApplication,
+  ValidationPipe,
+} from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import type { Server } from 'node:http';
 import request from 'supertest';
-import { AppModule } from '../src/app.module';
-import { PrismaService } from '../src/prisma/prisma.service';
+import { AttemptController } from '../src/attempt/attempt.controller';
+import { AttemptService } from '../src/attempt/attempt.service';
+import { JwtAuthGuard } from '../src/auth/guards/jwt-auth.guard';
+import type { AuthenticatedRequest } from '../src/auth/types/authenticated-request.type';
 
-describe('Attempt submission (e2e)', () => {
+describe('Attempt lifecycle routes (e2e)', () => {
+  const attemptService = {
+    start: jest.fn(),
+    finish: jest.fn(),
+  };
   let app: INestApplication;
-  let prisma: PrismaService;
-  let userId: number;
-  let challengeId: number;
+  let server: Server;
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
+      controllers: [AttemptController],
+      providers: [
+        {
+          provide: AttemptService,
+          useValue: attemptService,
+        },
+      ],
+    })
+      .overrideGuard(JwtAuthGuard)
+      .useValue({
+        canActivate(context: ExecutionContext) {
+          const authenticatedRequest = context
+            .switchToHttp()
+            .getRequest<AuthenticatedRequest>();
+          authenticatedRequest.user = { id: 42 };
+          return true;
+        },
+      })
+      .compile();
 
     app = moduleRef.createNestApplication();
-
     app.useGlobalPipes(
       new ValidationPipe({
         whitelist: true,
         transform: true,
       }),
     );
-
     await app.init();
-
-    prisma = app.get(PrismaService);
-
-    const user = await prisma.user.create({
-      data: {
-        login: `attempt-test-${Date.now()}`,
-        campus: 'Rabat',
-        avatarUrl: 'https://example.com/avatar.png',
-      },
-    });
-
-    const challenge = await prisma.dailyChallenge.create({
-      data: {
-        text: 'End-to-end typing passage',
-        date: new Date('2099-01-01'),
-        maxAttempts: 3,
-      },
-    });
-
-    userId = user.id;
-    challengeId = challenge.id;
+    server = app.getHttpServer() as Server;
   });
 
   afterAll(async () => {
-    await prisma.attempt.deleteMany({
-      where: { userId },
-    });
-
-    await prisma.dailyChallenge.delete({
-      where: { id: challengeId },
-    });
-
-    await prisma.user.delete({
-      where: { id: userId },
-    });
-
     await app.close();
   });
 
-  it('creates the first attempt with decimal accuracy', async () => {
-    const response = await request(app.getHttpServer())
-      .post('/attempts')
-      .send({
-        userId,
-        challengeId,
-        wpm: 70,
-        accuracy: 95.5,
-      })
-      .expect(201);
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
 
+  it('starts an attempt for the authenticated user', async () => {
+    attemptService.start.mockResolvedValue({
+      attemptId: 8,
+      startedAt: new Date('2026-08-12T12:00:00.000Z'),
+      expiresAt: new Date('2026-08-12T12:00:30.000Z'),
+      durationSeconds: 30,
+      attemptsRemaining: 2,
+      recoveredExpiredAttempt: false,
+      resumedActiveAttempt: false,
+    });
+
+    const response = await request(server).post('/attempts/start').expect(201);
+
+    expect(attemptService.start).toHaveBeenCalledWith(42);
     expect(response.body).toMatchObject({
-      userId,
-      challengeId,
+      attemptId: 8,
+      startedAt: '2026-08-12T12:00:00.000Z',
+      expiresAt: '2026-08-12T12:00:30.000Z',
+      durationSeconds: 30,
+    });
+  });
+
+  it('finishes using attempt identity and typed text', async () => {
+    attemptService.finish.mockResolvedValue({
+      completed: true,
+      completedText: false,
+      timerExpired: true,
+      durationMs: 30_000,
+      wpm: 70,
+      accuracy: 95.5,
+      bestWpm: 70,
+      bestAccuracy: 95.5,
       attemptsUsed: 1,
-      wpm: 70,
-      accuracy: 95.5,
+      attemptsRemaining: 2,
     });
-  });
 
-  it('counts a worse result without replacing the best score', async () => {
-    const response = await request(app.getHttpServer())
-      .post('/attempts')
-      .send({
-        userId,
-        challengeId,
-        wpm: 60,
-        accuracy: 99,
-      })
+    await request(server)
+      .post('/attempts/finish')
+      .send({ attemptId: 8, typedText: 'typing passage' })
       .expect(201);
 
-    expect(response.body).toMatchObject({
-      attemptsUsed: 2,
-      wpm: 70,
-      accuracy: 95.5,
+    expect(attemptService.finish).toHaveBeenCalledWith(42, {
+      attemptId: 8,
+      typedText: 'typing passage',
     });
   });
 
-  it('replaces the stored result when WPM is better', async () => {
-    const response = await request(app.getHttpServer())
-      .post('/attempts')
-      .send({
-        userId,
-        challengeId,
-        wpm: 80,
-        accuracy: 92.5,
-      })
-      .expect(201);
-
-    expect(response.body).toMatchObject({
-      attemptsUsed: 3,
-      wpm: 80,
-      accuracy: 92.5,
-    });
-  });
-
-  it('rejects submissions after the attempt limit', async () => {
-    const response = await request(app.getHttpServer())
-      .post('/attempts')
-      .send({
-        userId,
-        challengeId,
-        wpm: 100,
-        accuracy: 100,
-      })
+  it('rejects the removed client-calculated score contract', async () => {
+    await request(server)
+      .post('/attempts/finish')
+      .send({ wpm: 100, accuracy: 100 })
       .expect(400);
 
-    expect(response.body.message).toBe(
-      'Maximum number of attempts has been reached',
-    );
+    expect(attemptService.finish).not.toHaveBeenCalled();
   });
 });

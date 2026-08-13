@@ -1,14 +1,10 @@
-import { Controller, Get, UseGuards, Req, Res } from '@nestjs/common';
+import { Controller, Get, UseGuards, Req, Post } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { FortyTwoAuthGuard } from './guards/forty-two-auth.guard';
 import { UnauthorizedException } from '@nestjs/common';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { UserService } from '../users/users.service';
-type AuthenticatedRequest = {
-  user: {
-    id: number;
-  };
-};
+import type { AuthenticatedRequest } from './types/authenticated-request.type';
 
 @Controller('auth')
 export class AuthController {
@@ -35,5 +31,10 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   me(@Req() req: AuthenticatedRequest) {
     return this.userService.findUserById(req.user.id);
+  }
+
+  @Post('dev-login')
+  devLogin() {
+    return this.authService.devSignIn();
   }
 }

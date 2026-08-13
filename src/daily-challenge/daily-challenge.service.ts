@@ -2,6 +2,7 @@ import { ConflictException, Injectable } from '@nestjs/common';
 import { CreateDailyChallengeDto } from './dto/create-daily-challenge.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
+import { getTodayDate } from '../common/date/get-today-date';
 
 @Injectable()
 export class DailyChallengeService {
@@ -30,13 +31,9 @@ export class DailyChallengeService {
   }
 
   findToday() {
-    const today = new Date();
-
-    today.setUTCHours(0, 0, 0, 0);
-
     return this.prisma.dailyChallenge.findUnique({
       where: {
-        date: today,
+        date: getTodayDate(),
       },
     });
   }

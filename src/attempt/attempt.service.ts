@@ -1,121 +1,194 @@
 import {
   BadRequestException,
+  GoneException,
   Injectable,
   NotFoundException,
-  ServiceUnavailableException,
 } from '@nestjs/common';
-import { SubmitAttemptDto } from './dto/submit-attempt.dto';
-import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
+import { getTodayDate } from '../common/date/get-today-date';
+import { runSerializable } from '../prisma/run-serializable';
+import { PrismaService } from '../prisma/prisma.service';
+import {
+  attemptDurationMs,
+  isActiveAttempt,
+  isExpiredActiveAttempt,
+} from './attempt-policy';
+import { calculateVerifiedScore } from './attempt-score';
+import { FinishAttemptDto } from './dto/finish-attempt.dto';
 
 @Injectable()
 export class AttemptService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async submit(dto: SubmitAttemptDto) {
-    const maxRetries = 3;
+  start(userId: number) {
+    return runSerializable(this.prisma, async (tx) => {
+      const now = new Date();
+      const challenge = await this.findTodayChallenge(tx);
+      const attempt = await this.findChallengeAttempt(tx, userId, challenge.id);
+      const recoveredExpiredAttempt = isExpiredActiveAttempt(attempt, now);
 
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        return await this.submitTransaction(dto);
-      } catch (error: unknown) {
-        const isWriteConflict =
-          error instanceof Prisma.PrismaClientKnownRequestError &&
-          error.code === 'P2034';
-
-        if (!isWriteConflict) {
-          throw error;
-        }
-
-        if (attempt === maxRetries) {
-          throw new ServiceUnavailableException(
-            'Could not submit the attempt. Please try again',
-          );
-        }
+      if (isActiveAttempt(attempt) && !recoveredExpiredAttempt) {
+        return this.createStartResponse(
+          attempt!,
+          challenge.maxAttempts,
+          false,
+          true,
+        );
       }
-    }
+
+      if (attempt && attempt.attemptsUsed >= challenge.maxAttempts) {
+        throw new BadRequestException(
+          'Maximum number of attempts has been reached',
+        );
+      }
+
+      const startedAttempt = await tx.attempt.upsert({
+        where: {
+          userId_challengeId: { userId, challengeId: challenge.id },
+        },
+        create: {
+          userId,
+          challengeId: challenge.id,
+          attemptsUsed: 1,
+          startedAt: now,
+        },
+        update: {
+          attemptsUsed: { increment: 1 },
+          startedAt: now,
+          finishedAt: null,
+        },
+      });
+      return this.createStartResponse(
+        startedAttempt,
+        challenge.maxAttempts,
+        recoveredExpiredAttempt,
+        false,
+      );
+    });
   }
 
-  private submitTransaction(dto: SubmitAttemptDto) {
-    return this.prisma.$transaction(
-      async (tx) => {
-        const user = await tx.user.findUnique({
-          where: { id: dto.userId },
-          select: { id: true },
-        });
+  finish(userId: number, dto: FinishAttemptDto) {
+    return runSerializable(this.prisma, async (tx) => {
+      const now = new Date();
+      const attempt = await this.findOwnedAttempt(tx, userId, dto.attemptId);
 
-        if (!user) {
-          throw new NotFoundException(
-            `User with ID ${dto.userId} was not found`,
-          );
-        }
+      if (!attempt) {
+        throw new NotFoundException('Attempt not found');
+      }
 
-        const challenge = await tx.dailyChallenge.findUnique({
-          where: { id: dto.challengeId },
-          select: {
-            id: true,
-            maxAttempts: true,
-          },
-        });
+      if (!isActiveAttempt(attempt)) {
+        throw new BadRequestException('No active attempt was found');
+      }
 
+      if (isExpiredActiveAttempt(attempt, now)) {
+        throw new GoneException('Attempt has expired. Start a new attempt');
+      }
+
+      if (dto.typedText.length > attempt.challenge.text.length) {
+        throw new BadRequestException(
+          'Typed text cannot be longer than the challenge text',
+        );
+      }
+
+      const elapsedMs = now.getTime() - attempt.startedAt!.getTime();
+      const durationMs = Math.min(elapsedMs, attemptDurationMs());
+      const completedText =
+        dto.typedText.length === attempt.challenge.text.length;
+      const timerExpired = elapsedMs >= attemptDurationMs();
+      const scoreIsVerified = completedText || timerExpired;
+      const score = scoreIsVerified
+        ? calculateVerifiedScore(
+            attempt.challenge.text,
+            dto.typedText,
+            durationMs,
+          )
+        : { wpm: 0, accuracy: 0 };
+      const isBetterScore =
+        scoreIsVerified &&
+        (score.wpm > attempt.wpm ||
+          (score.wpm === attempt.wpm && score.accuracy > attempt.accuracy));
+
+      const finishedAttempt = await tx.attempt.update({
+        where: { id: attempt.id },
+        data: {
+          finishedAt: now,
+          ...(isBetterScore && score),
+        },
+      });
+
+      return {
+        completed: scoreIsVerified,
+        completedText,
+        timerExpired,
+        durationMs,
+        wpm: score.wpm,
+        accuracy: score.accuracy,
+        bestWpm: finishedAttempt.wpm,
+        bestAccuracy: finishedAttempt.accuracy,
+        attemptsUsed: finishedAttempt.attemptsUsed,
+        attemptsRemaining:
+          attempt.challenge.maxAttempts - finishedAttempt.attemptsUsed,
+      };
+    });
+  }
+
+  private findTodayChallenge(tx: Prisma.TransactionClient) {
+    return tx.dailyChallenge
+      .findUnique({
+        where: { date: getTodayDate() },
+        select: { id: true, maxAttempts: true },
+      })
+      .then((challenge) => {
         if (!challenge) {
-          throw new NotFoundException(
-            `Daily challenge with ID ${dto.challengeId} was not found`,
-          );
+          throw new NotFoundException('No daily challenge exists for today');
         }
+        return challenge;
+      });
+  }
 
-        const existingAttempt = await tx.attempt.findUnique({
-          where: {
-            userId_challengeId: {
-              userId: dto.userId,
-              challengeId: dto.challengeId,
-            },
-          },
-        });
+  private createStartResponse(
+    attempt: { id: number; startedAt: Date | null; attemptsUsed: number },
+    maxAttempts: number,
+    recoveredExpiredAttempt: boolean,
+    resumedActiveAttempt: boolean,
+  ) {
+    const durationMs = attemptDurationMs();
 
-        if (
-          existingAttempt &&
-          existingAttempt.attemptsUsed >= challenge.maxAttempts
-        ) {
-          throw new BadRequestException(
-            'Maximum number of attempts has been reached',
-          );
-        }
+    return {
+      attemptId: attempt.id,
+      startedAt: attempt.startedAt,
+      expiresAt: new Date(attempt.startedAt!.getTime() + durationMs),
+      durationSeconds: durationMs / 1000,
+      attemptsRemaining: maxAttempts - attempt.attemptsUsed,
+      recoveredExpiredAttempt,
+      resumedActiveAttempt,
+    };
+  }
 
-        const isBetterScore =
-          !existingAttempt ||
-          dto.wpm > existingAttempt.wpm ||
-          (dto.wpm === existingAttempt.wpm &&
-            dto.accuracy > existingAttempt.accuracy);
-
-        return tx.attempt.upsert({
-          where: {
-            userId_challengeId: {
-              userId: dto.userId,
-              challengeId: dto.challengeId,
-            },
-          },
-          create: {
-            userId: dto.userId,
-            challengeId: dto.challengeId,
-            wpm: dto.wpm,
-            accuracy: dto.accuracy,
-            attemptsUsed: 1,
-          },
-          update: {
-            ...(isBetterScore && {
-              wpm: dto.wpm,
-              accuracy: dto.accuracy,
-            }),
-            attemptsUsed: {
-              increment: 1,
-            },
-          },
-        });
+  private findChallengeAttempt(
+    tx: Prisma.TransactionClient,
+    userId: number,
+    challengeId: number,
+  ) {
+    return tx.attempt.findUnique({
+      where: {
+        userId_challengeId: { userId, challengeId },
       },
-      {
-        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+    });
+  }
+
+  private findOwnedAttempt(
+    tx: Prisma.TransactionClient,
+    userId: number,
+    attemptId: number,
+  ) {
+    return tx.attempt.findFirst({
+      where: { id: attemptId, userId },
+      include: {
+        challenge: {
+          select: { text: true, maxAttempts: true },
+        },
       },
-    );
+    });
   }
 }

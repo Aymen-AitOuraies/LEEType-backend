@@ -1,18 +1,10 @@
-import { Test, TestingModule } from '@nestjs/testing';
+import { PrismaService } from '../prisma/prisma.service';
 import { DailyChallengeService } from './daily-challenge.service';
 
 describe('DailyChallengeService', () => {
-  let service: DailyChallengeService;
+  it('is created with its Prisma dependency', () => {
+    const prisma = {} as PrismaService;
 
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [DailyChallengeService],
-    }).compile();
-
-    service = module.get<DailyChallengeService>(DailyChallengeService);
-  });
-
-  it('should be defined', () => {
-    expect(service).toBeDefined();
+    expect(new DailyChallengeService(prisma)).toBeDefined();
   });
 });
